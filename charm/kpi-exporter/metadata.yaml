@@ -1,0 +1,22 @@
+name: kpi-exporter
+summary: KPI exporter.
+maintainer: Ales Stimec <ales.stimec@canonical.com>
+description: Deploys exporter of kpi metrics from kafka to influxdb.
+tags: 
+  - ops
+  - streaming
+min-juju-version: "2.4.0"
+series: 
+  - xenial
+  - bionic
+requires:
+  kafka:
+    interface: kafka
+  influxdb:
+    interface: influxdb-api
+resources:
+    kpi-exporter:
+        type: file
+        filename: kpi-exporter.snap
+        description: KPI exporter snap.
+

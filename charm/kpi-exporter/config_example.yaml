@@ -1,0 +1,51 @@
+kpi-exporter:
+  topics_yaml: |-
+    - topic: UA_ACCOUNT_TOTAL
+      tags:
+        service: ua-contracts
+      fields:
+        NUM_ACCOUNTS: number
+    - topic: UA_ACCOUNT_HOUR
+      tags:
+        service: ua-contracts
+      fields:
+        KSQL_COL_1: number
+    - topic: UA_CONTRACT_TOTAL
+      tags:
+        service: ua-contracts
+      fields:
+        KSQL_COL_1: number
+    - topic: UA_RESOURCE_MACHINE_TOTAL
+      tags:
+        service: ua-contracts
+      fields:
+        RESOURCE: string
+        KSQL_COL_2: number
+    - topic: UA_RESOURCE_ACCOUNT_TOTAL
+      tags:
+        service: ua-contracts
+      fields:
+        RESOURCE: string
+        KSQL_COL_2: number
+    - topic: UA_ATTACHEDACCOUNTS_TOTAL
+      tags:
+        service: ua-contracts
+      fields:
+        KSQL_COL_1: number
+    - topic: UA_ATTACHEDACCOUNTS_HISTO
+      tags:
+        service: ua-contracts
+      fields:
+        KSQL_COL_1: hist
+    - topic: UA_ATTACHEDACCOUNTS_COUNTABLE
+      tags:
+        service: ua-contracts
+      fields:
+        ACCOUNTID: string
+        ITEM: number
+    - topic: UA_ATTACHED_MACHINES_PER_ACCOUNT
+      tags:
+        service: ua-contracts
+      fields:
+        ACCOUNTID: string
+        KSQL_COL_1: number

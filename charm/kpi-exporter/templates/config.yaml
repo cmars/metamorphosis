@@ -1,0 +1,13 @@
+# Copyright 2019 Canonical Ltd.  All rights reserved.
+
+{%- if kafka_brokers %}
+kafka-brokers: {{ kafka_brokers }}
+{%- endif %}
+{%- if influx_db %}
+influx-db: {{ influx_db }}
+{%- endif %}
+{%- if topics_yaml %}
+topics: 
+{{ topics_yaml }}
+{%- endif %}
+

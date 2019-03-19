@@ -1,0 +1,9 @@
+options:
+  topics_yaml:
+    type: string
+    default: ""
+    description: KPI exporter topics config.
+  release-channel:
+    type: string
+    default: stable
+    description: The release channel of the kpi-exporter snap package. This will be ignored if the snap file is attached as a resource or built with the charm.

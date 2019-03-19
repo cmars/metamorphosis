@@ -1,0 +1,28 @@
+name: kpi-exporter
+version: '0.1'
+base: core18
+summary: A tool that exports metrics from kafka to influx.
+description: A tool that exports metrics from kafka to influx.
+
+grade: devel # must be 'stable' to release into candidate/stable channels
+confinement: strict
+
+apps:
+  kpi-exporter:
+    command: kpi-exporter-wrapper.bash
+    daemon: simple
+    plugs:
+    - network
+    - network-bind
+
+parts:
+  ua-contracts-kpi:
+    plugin: go
+    source: .
+    go-importpath: github.com/CanonicalLtd/ua-contracts-kpi
+    build-packages:
+    - git
+    - gcc
+  wrapper:
+    plugin: dump
+    source: snap/local

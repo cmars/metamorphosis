@@ -1,0 +1,2 @@
+all:
+	charm build -o ..
