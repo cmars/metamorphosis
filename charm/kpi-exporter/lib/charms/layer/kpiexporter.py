@@ -82,7 +82,8 @@ class KPIExporter(object):
         host.service_stop(KPI_EXPORTER_SERVICE)
 
     def version(self):
-        with open('/snap/{}/current/meta/snap.yaml'.format(KPI_EXPORTER_SNAP), 'r') as f:
+        with open('/snap/{}/current/meta/snap.yaml'.format(KPI_EXPORTER_SNAP),
+                  'r') as f:
             meta = yaml.load(f)
         return meta.get('version')
 

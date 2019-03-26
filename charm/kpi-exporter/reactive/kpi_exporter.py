@@ -6,18 +6,7 @@ from subprocess import check_call
 from charmhelpers.core import hookenv
 from charms.reactive import when, when_not, hook, set_state, remove_state
 from charms.reactive.helpers import data_changed
-from charmhelpers.core.hookenv import config
 from charms.layer.kpiexporter import KPI_EXPORTER_SNAP, KPIExporter
-
-
-@when_not('kpi-exporter.available')
-def install():
-    install_snap()
-
-
-@hook('upgrade-charm')
-def upgrade():
-    upgrade_snap()
 
 
 @hook('stop')
@@ -25,47 +14,7 @@ def uninstall():
     check_call(['snap', 'remove', "kpi-exporter"])
 
 
-def install_snap():
-    # Need to install the core snap explicit. If not, there's
-    # no slots for removable-media on a bionic install.
-    # Not sure if that's a snapd bug or intended behavior.
-    check_call(['snap', 'install', 'core'])
-
-    cfg = config()
-    # KSQL-Server's snap presedence is:
-    # 1. Included in snap
-    # 2. Included with resource of charm of 'ksql-server'
-    # 3. Snap store with release channel specified in config
-    snap_file = get_snap_file_from_charm() or hookenv.resource_get('kpi-exporter')
-    if snap_file:
-        check_call(['snap', 'install', '--dangerous', snap_file])
-    if not snap_file:
-        check_call(
-            [
-                'snap',
-                'install',
-                '--{}'.format(cfg['release-channel']),
-                KPI_EXPORTER_SNAP
-            ]
-        )
-
-    set_state('kpi-exporter.available')
-
-
-def upgrade_snap():
-    cfg = config()
-    check_call(
-        [
-            'snap',
-            'refresh',
-            '--{}'.format(cfg['release-channel']),
-            KPI_EXPORTER_SNAP
-        ]
-    )
-    set_state('ksql.available')
-
-
-@when('kpi-exporter.available')
+@when('snap.installed.kpi-exporter')
 @when_not('kafka.joined')
 def waiting_for_kafka():
     k = KPIExporter()

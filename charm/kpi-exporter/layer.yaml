@@ -2,7 +2,9 @@ includes:
 - 'layer:basic'
 - 'interface:influxdb-api'
 - 'interface:kafka'
+- 'layer:snap'
 options:
-  basic:
-    packages:
-    - python3-netifaces
+  snap:
+    core: {}
+    kpi-exporter: {}
+repo: https://github.com/CanonicalLtd/ua-contracts-kpi.git

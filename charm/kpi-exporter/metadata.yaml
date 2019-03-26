@@ -6,6 +6,7 @@ tags:
   - ops
   - streaming
 min-juju-version: "2.4.0"
+subordinate: false
 series: 
   - xenial
   - bionic
@@ -15,8 +16,7 @@ requires:
   influxdb:
     interface: influxdb-api
 resources:
-    kpi-exporter:
-        type: file
-        filename: kpi-exporter.snap
-        description: KPI exporter snap.
-
+  kpi-exporter:
+    type: file
+    filename: kpi-exporter.snap
+    description: KPI exporter snap.
