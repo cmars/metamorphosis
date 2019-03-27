@@ -8,7 +8,7 @@ from charms.layer import snap
 @hook('stop')
 def uninstall():
     try:
-        snap.remove('kpi-exporter')
+        snap.remove('metamorphosis')
     except Exception as e:
         # log errors but do not fail stop hook
         hookenv.log('failed to remove snap: {}'.format(e), hookenv.ERROR)

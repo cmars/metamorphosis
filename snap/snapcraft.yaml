@@ -1,25 +1,25 @@
-name: kpi-exporter
+name: metamorphosis
 version: '0.1'
 base: core18
-summary: A tool that exports metrics from kafka to influx.
-description: A tool that exports metrics from kafka to influx.
+summary: A daemon that exports metrics from kafka to influx.
+description: A daemon that exports metrics from kafka to influx.
 
 grade: devel # must be 'stable' to release into candidate/stable channels
 confinement: strict
 
 apps:
-  kpi-exporter:
-    command: kpi-exporter-wrapper.bash
+  metamorphosis:
+    command: exporter-wrapper.bash
     daemon: simple
     plugs:
     - network
     - network-bind
 
 parts:
-  ua-contracts-kpi:
+  metamorphosis:
     plugin: go
     source: .
-    go-importpath: github.com/CanonicalLtd/ua-contracts-kpi
+    go-importpath: github.com/cloud-green/metamorphosis
     build-packages:
     - git
     - gcc

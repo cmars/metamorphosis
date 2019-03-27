@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import os
-import yaml
 import re
 import socket
 
@@ -22,12 +21,15 @@ from charmhelpers.core import host, hookenv
 from charmhelpers.core.templating import render
 from charmhelpers.core.hookenv import config
 
-KPI_EXPORTER_SNAP = 'kpi-exporter'
-KPI_EXPORTER_SERVICE = 'snap.{}.kpi-exporter.service'.format(KPI_EXPORTER_SNAP)
-KPI_EXPORTER_SNAP_COMMON = '/var/snap/{}/common'.format(KPI_EXPORTER_SNAP)
+from charms.layer import snap
+
+METAMORPHOSIS_SNAP = 'metamorphosis'
+METAMORPHOSIS_SERVICE = 'snap.{}.metamorphosis.service'.format(
+    METAMORPHOSIS_SNAP)
+METAMORPHOSIS_SNAP_COMMON = '/var/snap/{}/common'.format(METAMORPHOSIS_SNAP)
 
 
-class KPIExporter(object):
+class Metamorphosis(object):
     def __init__(self):
         self.cfg = config()
 
@@ -60,9 +62,9 @@ class KPIExporter(object):
         render(
             source='config.yaml',
             target=os.path.join(
-                KPI_EXPORTER_SNAP_COMMON,
+                METAMORPHOSIS_SNAP_COMMON,
                 'etc',
-                'kpi-exporter.config'
+                'exporter.config'
             ),
             owner="root",
             perms=0o644,
@@ -72,20 +74,31 @@ class KPIExporter(object):
         self.restart()
 
     def restart(self):
-        self.stop()
-        self.start()
+        '''
+        Restarts the metamorphosis service.
+        '''
+        host.service_restart(METAMORPHOSIS_SERVICE)
 
     def start(self):
-        host.service_start(KPI_EXPORTER_SERVICE)
+        '''
+        Starts the metamorphosis service.
+        '''
+        host.service_start(METAMORPHOSIS_SERVICE)
 
     def stop(self):
-        host.service_stop(KPI_EXPORTER_SERVICE)
+        '''
+        Stops the metamorphosis service
+        '''
+        host.service_stop(METAMORPHOSIS_SERVICE)
 
     def version(self):
-        with open('/snap/{}/current/meta/snap.yaml'.format(KPI_EXPORTER_SNAP),
-                  'r') as f:
-            meta = yaml.load(f)
-        return meta.get('version')
+        '''
+        Will attempt to get the version from the version fieldof the
+        Kafka snap file.
+        If there is a reader exception or a parser exception, unknown
+        will be returned
+        '''
+        return snap.get_installed_version(METAMORPHOSIS_SNAP) or 'unknown'
 
 
 def resolve_private_address(addr):

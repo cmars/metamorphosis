@@ -1,7 +1,7 @@
-name: kpi-exporter
-summary: KPI exporter.
+name: metamorphosis
+summary: A service that exports metrics from kafka to influxdb exporter.
 maintainer: Ales Stimec <ales.stimec@canonical.com>
-description: Deploys exporter of kpi metrics from kafka to influxdb.
+description: A service that exports metrics from kafka to influxdb exporter.
 tags: 
   - ops
   - streaming
@@ -16,7 +16,7 @@ requires:
   influxdb:
     interface: influxdb-api
 resources:
-  kpi-exporter:
+  metamorphosis:
     type: file
-    filename: kpi-exporter.snap
-    description: KPI exporter snap.
+    filename: metamorphosis.snap
+    description: The metamorphosis snap.

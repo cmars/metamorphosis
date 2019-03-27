@@ -4,36 +4,37 @@ VERSION := $(shell awk '/version:/ {print $$2}' snap/snapcraft.yaml | head -1 | 
 all: snap charm
 
 .PHONY: snap
-snap: kpi-exporter_$(VERSION)_amd64.snap
+snap: metamorphosis_$(VERSION)_amd64.snap
 
-kpi-exporter_$(VERSION)_amd64.snap:
+metamorphosis_$(VERSION)_amd64.snap:
 	snapcraft
 
 .PHONY: charm
-charm: charm/builds/kpi-exporter
+charm: charm/builds/metamorphosis
 
-charm/builds/kpi-exporter:
-	$(MAKE) -C charm/kpi-exporter
+charm/builds/metamorphosis:
+	$(MAKE) -C charm/metamorphosis
 
 .PHONY: lint
 lint:
-	flake8 --ignore=E121,E123,E126,E226,E24,E704,E265 charm/kpi-exporter
+	flake8 --ignore=E121,E123,E126,E226,E24,E704,E265 charm/metamorphosis
 
 .PHONY: docker-image
 docker-image:
-	$(MAKE) -C kpi-exporter all
+	$(MAKE) -C metamorphosis all
 
 .PHONY: clean
 clean: clean-charm clean-snap clean-docker
 
 .PHONY: clean-charm
 clean-charm:
-	$(RM) -r charm/builds/kpi-exporter
+	$(RM) -r charm/builds/metamorphosis
 
 .PHONY: clean-snap
 clean-snap:
 	snapcraft clean
+	rm -f metamorphosis_$(VERSION)_amd64.snap
 
 .PHONY: clean-docker
 clean-docker:
-	$(MAKE) -C kpi-exporter clean
+	$(MAKE) -C exporter clean

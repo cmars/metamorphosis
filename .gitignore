@@ -1,0 +1,4 @@
+.*.swp
+*.snap
+charm/builds
+exporter/exporter

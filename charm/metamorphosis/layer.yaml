@@ -6,5 +6,5 @@ includes:
 options:
   snap:
     core: {}
-    kpi-exporter: {}
-repo: https://github.com/CanonicalLtd/ua-contracts-kpi.git
+    metamorphosis: {}
+repo: https://github.com/cloud-green/metamorphosis.git
