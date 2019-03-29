@@ -3,7 +3,7 @@ from charms.reactive import when, when_not, hook, set_state, remove_state
 from charms.reactive.helpers import data_changed
 from charms.layer.metamorphosis import Metamorphosis
 
-from autostart import autostart_service
+from .autostart import autostart_service
 
 
 @when('snap.installed.metamorphosis')
