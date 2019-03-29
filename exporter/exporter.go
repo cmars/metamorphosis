@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -25,8 +27,15 @@ var (
 
 type Config struct {
 	KafkaBrokers string        `yaml:"kafka-brokers,omitempty"`
+	KafkaTLS     *tlsConfig    `yaml:"kafka-tls,omitempty"`
 	InfluxDB     string        `yaml:"influx-db,omitempty"`
 	Topics       []TopicConfig `yaml:"topics"`
+}
+
+type tlsConfig struct {
+	CACert string `yaml:"ca-cert"`
+	Cert   string `yaml:"cert"`
+	Key    string `yaml:"key"`
 }
 
 func (c *Config) kafkaBrokers() string {
@@ -34,6 +43,28 @@ func (c *Config) kafkaBrokers() string {
 		return c.KafkaBrokers
 	}
 	return kafkaBrokers
+}
+
+func (c *Config) tls() (*TLSConfig, error) {
+	if c.KafkaTLS == nil {
+		return nil, nil
+	}
+	cert, err := tls.LoadX509KeyPair(c.KafkaTLS.Cert, c.KafkaTLS.Key)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to load client certificate and key")
+	}
+	caCertBytes, err := ioutil.ReadFile(c.KafkaTLS.CACert)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to read CA certificate")
+	}
+	caCert, err := x509.ParseCertificate(caCertBytes)
+	if err != nil {
+		return nil, errors.Annotate(err, "invalid CA certificate")
+	}
+	return &TLSConfig{
+		Certificate:   cert,
+		CACertificate: caCert,
+	}, nil
 }
 
 func (c *Config) influxDB() (*client.HTTPConfig, error) {
@@ -81,6 +112,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to unmarshal the config file: %v", err)
 	}
+	tlsConfig, err := config.tls()
+	if err != nil {
+		log.Fatalf("invalid TLS configuration: %v", err)
+	}
 
 	ctx, cancelFn := context.WithCancel(context.Background())
 	defer cancelFn()
@@ -100,7 +135,7 @@ func main() {
 
 	consumers := make([]*Consumer, len(config.Topics))
 	for i, topicConfig := range config.Topics {
-		consumer, err := startConsumer(ctx, config.kafkaBrokers(), httpClient, topicConfig)
+		consumer, err := startConsumer(ctx, config.kafkaBrokers(), tlsConfig, httpClient, topicConfig)
 		if err != nil {
 			log.Fatalf("failed to start consumer: %v", err)
 		}
@@ -126,10 +161,11 @@ func main() {
 	}
 }
 
-func startConsumer(ctx context.Context, kafkaBrokers string, influxClient client.Client, config TopicConfig) (*Consumer, error) {
+func startConsumer(ctx context.Context, kafkaBrokers string, tlsConfig *TLSConfig, influxClient client.Client, config TopicConfig) (*Consumer, error) {
 	consumerConfig := ConsumerConfig{
 		Context:          ctx,
 		Brokers:          strings.Split(kafkaBrokers, ","),
+		TLSConfig:        tlsConfig,
 		Topic:            config.Topic,
 		GroupName:        "influx-consumer",
 		Clock:            clock.WallClock,

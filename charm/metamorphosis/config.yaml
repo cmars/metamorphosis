@@ -3,10 +3,3 @@ options:
     type: string
     default: ""
     description: Specification of topics to be exported to influxdb.
-  release-channel:
-    type: string
-    default: stable
-    description: |-
-      The release channel of the metamorphosis snap package. 
-      This will be ignored if the snap file is attached as a 
-      resource or built with the charm.

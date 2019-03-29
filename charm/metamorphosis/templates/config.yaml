@@ -3,6 +3,12 @@
 {%- if kafka_brokers %}
 kafka-brokers: {{ kafka_brokers }}
 {%- endif %}
+{%- if kafka_tls %}
+kafka-tls:
+  ca: {{ kafka_tls.cacert }}
+  cert: {{ kafka_tls.cert }}
+  key: {{ kafka_tls.key }}
+{%- endif %}
 {%- if influx_db %}
 influx-db: {{ influx_db }}
 {%- endif %}

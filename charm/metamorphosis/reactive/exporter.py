@@ -30,6 +30,7 @@ def waiting_for_influxdb():
 @when('snap.installed.metamorphosis')
 def read(kafka, influxdb):
     set_state('metamorphosis.reconfigure')
+    remove_state('metamorphosis.started')
 
 
 @when('kafka.ready', 'influxdb.available')
@@ -59,6 +60,7 @@ def configure(kafka, influxdb):
     # set app version string for juju status output
     snap_version = m.version() or 'unknown'
     hookenv.application_version_set(snap_version)
+    set_state('metamorphosis.started')
     remove_state('metamorphosis.reconfigure')
 
 
@@ -68,3 +70,4 @@ def config_changed():
     if not data_changed('config', hook_config):
         return
     set_state('metamorphosis.reconfigure')
+    remove_state('metamorphosis.started')

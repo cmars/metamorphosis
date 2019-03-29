@@ -27,6 +27,15 @@ METAMORPHOSIS_SNAP = 'metamorphosis'
 METAMORPHOSIS_SERVICE = 'snap.{}.metamorphosis.service'.format(
     METAMORPHOSIS_SNAP)
 METAMORPHOSIS_SNAP_COMMON = '/var/snap/{}/common'.format(METAMORPHOSIS_SNAP)
+METAMORPHOSIS_CA_CERT = os.path.join(METAMORPHOSIS_SNAP_COMMON,
+                                     'etc',
+                                     'ca.crt')
+METAMORPHOSIS_CERT = os.path.join(METAMORPHOSIS_SNAP_COMMON,
+                                  'etc',
+                                  'client.crt')
+METAMORPHOSIS_KEY = os.path.join(METAMORPHOSIS_SNAP_COMMON,
+                                  'etc',
+                                  'client.key')
 
 
 class Metamorphosis(object):
@@ -55,6 +64,11 @@ class Metamorphosis(object):
 
         context = {
             'kafka_brokers': kafka_connect,
+            'kafka_tls': {
+                'cacert': METAMORPHOSIS_CA_CERT,
+                'cert': METAMORPHOSIS_CERT,
+                'key': METAMORPHOSIS_KEY,
+            },
             'influx_db': influxdb_connect,
             'topics_yaml': topics_yaml,
         }
@@ -72,6 +86,12 @@ class Metamorphosis(object):
         )
 
         self.restart()
+
+    def is_running(self):
+        '''
+        Return whether the metamorphosis service is running.
+        '''
+        return host.service_running(METAMORPHOSIS_SERVICE)
 
     def restart(self):
         '''

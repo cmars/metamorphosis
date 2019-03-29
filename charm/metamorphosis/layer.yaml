@@ -3,8 +3,11 @@ includes:
 - 'interface:influxdb-api'
 - 'interface:kafka'
 - 'layer:snap'
+- 'interface:tls-certificates'
+- 'layer:tls-client'
 options:
   snap:
     core: {}
-    metamorphosis: {}
+    metamorphosis:
+      channel: edge
 repo: https://github.com/cloud-green/metamorphosis.git
