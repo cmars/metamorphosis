@@ -4,7 +4,7 @@ import shutil
 from charmhelpers.core import hookenv
 
 from charms.reactive import (when, when_file_changed, remove_state,
-                             when_not, set_state, set_flag)
+                             when_not, set_state)
 
 from charms.layer import tls_client
 from charms.layer.metamorphosis import (METAMORPHOSIS_CA_CERT,
@@ -14,6 +14,7 @@ from charms.layer.metamorphosis import (METAMORPHOSIS_CA_CERT,
 
 @when('certificates.available')
 def send_data():
+    assertDirExists(METAMORPHOSIS_CERT)
     # Request a server cert with this information.
     tls_client.request_client_cert(
         hookenv.service_name(),
@@ -39,3 +40,8 @@ def import_ca_crt_to_keystore():
         shutil.copyfile(ca_path, METAMORPHOSIS_CA_CERT)
         remove_state('tls_client.ca_installed')
         set_state('metamorphosis.ca.keystore.saved')
+
+
+def assertDirExists(path):
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
