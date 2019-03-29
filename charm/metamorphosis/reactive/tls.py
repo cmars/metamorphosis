@@ -30,7 +30,7 @@ def restart_when_cert_key_changed():
 
 
 @when('tls_client.ca_installed')
-@when_not('metamorphosis.ca.keystore.saved')
+@when_not('metamorphosis.ca.certificate.saved')
 def import_ca_crt_to_keystore():
     ca_path = '/usr/local/share/ca-certificates/{}.crt'.format(
         hookenv.service_name()
@@ -39,7 +39,7 @@ def import_ca_crt_to_keystore():
     if os.path.isfile(ca_path):
         shutil.copyfile(ca_path, METAMORPHOSIS_CA_CERT)
         remove_state('tls_client.ca_installed')
-        set_state('metamorphosis.ca.keystore.saved')
+        set_state('metamorphosis.ca.certificate.saved')
 
 
 def assertDirExists(path):
