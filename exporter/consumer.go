@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 	"sync"
 	"time"
 
@@ -21,6 +22,10 @@ import (
 	"go.uber.org/zap"
 	tomb "gopkg.in/tomb.v2"
 )
+
+func init() {
+	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
+}
 
 const (
 	defaultMaximumCacheSize = 1000
@@ -84,7 +89,7 @@ func (c *TLSConfig) tls() *tls.Config {
 		caCertPool.AddCert(c.CACertificate)
 		config.RootCAs = caCertPool
 	}
-
+	config.BuildNameToCertificate()
 	return config
 }
 
@@ -166,9 +171,10 @@ func NewConsumer(config ConsumerConfig) (*Consumer, error) {
 
 	clientCfg := sarama.NewConfig()
 	clientCfg.Producer.Return.Successes = true
-	clientCfg.Version = sarama.V2_0_0_0
+	clientCfg.Version = sarama.V2_1_0_0
 	clientCfg.Consumer.Offsets.Initial = sarama.OffsetOldest
 	if config.TLSConfig != nil {
+		zapctx.Error(context.Background(), "setting TLS config")
 		clientCfg.Net.TLS.Config = config.TLSConfig.tls()
 		clientCfg.Net.TLS.Enable = true
 	}

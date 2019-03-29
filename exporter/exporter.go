@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -57,7 +58,11 @@ func (c *Config) tls() (*TLSConfig, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read CA certificate")
 	}
-	caCert, err := x509.ParseCertificate(caCertBytes)
+	pemData, _ := pem.Decode(caCertBytes)
+	if pemData == nil {
+		return nil, errors.New("failed to decode CA certificate")
+	}
+	caCert, err := x509.ParseCertificate(pemData.Bytes)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid CA certificate")
 	}

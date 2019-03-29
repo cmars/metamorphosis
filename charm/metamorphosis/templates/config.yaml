@@ -5,7 +5,7 @@ kafka-brokers: {{ kafka_brokers }}
 {%- endif %}
 {%- if kafka_tls %}
 kafka-tls:
-  ca: {{ kafka_tls.cacert }}
+  ca-cert: {{ kafka_tls.cacert }}
   cert: {{ kafka_tls.cert }}
   key: {{ kafka_tls.key }}
 {%- endif %}
