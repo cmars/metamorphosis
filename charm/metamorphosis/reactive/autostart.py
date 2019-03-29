@@ -27,4 +27,5 @@ def autostart_service():
             hookenv.status_set('active', 'ready')
             return
 
-    hookenv.status_set('blocked', 'failed to start metamorphosis; check syslog')
+    hookenv.status_set('blocked',
+                       'failed to start metamorphosis; check syslog')

@@ -34,8 +34,8 @@ METAMORPHOSIS_CERT = os.path.join(METAMORPHOSIS_SNAP_COMMON,
                                   'etc',
                                   'client.crt')
 METAMORPHOSIS_KEY = os.path.join(METAMORPHOSIS_SNAP_COMMON,
-                                  'etc',
-                                  'client.key')
+                                 'etc',
+                                 'client.key')
 
 
 class Metamorphosis(object):
