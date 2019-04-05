@@ -31,26 +31,27 @@ def waiting_for_influxdb():
 @when('kafka.ready', 'influxdb.available')
 @when('snap.installed.metamorphosis')
 def read(kafka, influxdb):
-    set_state('metamorphosis.reconfigure')
-    remove_state('metamorphosis.started')
-
-
-@when('kafka.ready', 'influxdb.available')
-@when('metamorphosis.reconfigure')
-def configure(kafka, influxdb):
-    hook_config = hookenv.config()
-    topics_yaml = hook_config.get('topics_yaml', '')
+    topics_yaml = hookenv.config().get('topics_yaml')
     if not topics_yaml:
         hookenv.status_set('blocked', 'Please set the topics_yaml option')
         return
-
     config_changed = (data_changed('topics_yaml', topics_yaml) or
                       data_changed('kafka', kafka.kafkas()) or
                       data_changed('influx_user', influxdb.user()) or
                       data_changed('influx_password', influxdb.password()) or
                       data_changed('influx_host', influxdb.hostname()) or
                       data_changed('influx_port', influxdb.port()))
-    if not config_changed:
+    if config_changed:
+        set_state('metamorphosis.reconfigure')
+        remove_state('metamorphosis.started')
+
+
+@when('kafka.ready', 'influxdb.available')
+@when('metamorphosis.reconfigure')
+def configure(kafka, influxdb):
+    topics_yaml = hookenv.config().get('topics_yaml')
+    if not topics_yaml:
+        hookenv.status_set('blocked', 'Please set the topics_yaml option')
         return
 
     hookenv.status_set('maintenance', 'updating configuration')
@@ -69,8 +70,5 @@ def configure(kafka, influxdb):
 
 @hook('config-changed')
 def config_changed():
-    hook_config = hookenv.config()
-    if not data_changed('config', hook_config):
-        return
     set_state('metamorphosis.reconfigure')
     remove_state('metamorphosis.started')
