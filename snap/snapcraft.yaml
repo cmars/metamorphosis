@@ -1,5 +1,5 @@
 name: metamorphosis
-version: '0.1'
+version: '0.2'
 base: core18
 summary: A daemon that exports metrics from kafka to influx.
 description: A daemon that exports metrics from kafka to influx.
