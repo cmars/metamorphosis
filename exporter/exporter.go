@@ -30,6 +30,13 @@ var (
 	configFile   = os.Getenv("CONFIG")
 )
 
+type TopicConfig struct {
+	Topic  string            `yaml:"topic"`
+	Type   string            `yaml:"type,omitempty"`
+	Tags   map[string]string `yaml:"tags,omitempty"`
+	Fields map[string]string `yaml:"fields,omitempty"`
+}
+
 type Config struct {
 	KafkaBrokers string        `yaml:"kafka-brokers,omitempty"`
 	KafkaTLS     *tlsConfig    `yaml:"kafka-tls,omitempty"`
@@ -101,12 +108,6 @@ func (c *Config) influxDB() (*client.HTTPConfig, error) {
 	}
 
 	return cfg, nil
-}
-
-type TopicConfig struct {
-	Topic  string            `yaml:"topic"`
-	Tags   map[string]string `yaml:"tags"`
-	Fields map[string]string `yaml:"fields"`
 }
 
 func main() {
@@ -228,24 +229,26 @@ func startConsumer(ctx context.Context, kafkaBrokers string, tlsConfig *TLSConfi
 				}
 				log.Printf("looking for fields: %v", config.Fields)
 				entryC := make(map[string]interface{})
-				for key, entryType := range config.Fields {
-					entryValue, ok := entry[key]
-					if !ok {
-						log.Printf("entry key not found: %v", key)
-						continue
+				switch config.Type {
+				case "histogram", "top-k":
+					for key, value := range entry {
+						entryC[key] = value.(int)
 					}
-					switch entryType {
-					case "number":
-						entryC[key] = entryValue.(float64)
-					case "string":
-						entryC[key] = entryValue.(string)
-					case "hist":
-						vals := entryValue.(map[string]interface{})
-						for k, v := range vals {
-							entryC[k] = v.(float64)
+				default:
+					for key, entryType := range config.Fields {
+						entryValue, ok := entry[key]
+						if !ok {
+							log.Printf("entry key not found: %v", key)
+							continue
 						}
-					default:
-						log.Printf("unknown entry type %v", entryType)
+						switch entryType {
+						case "number":
+							entryC[key] = entryValue.(float64)
+						case "string":
+							entryC[key] = entryValue.(string)
+						default:
+							log.Printf("unknown entry type %v", entryType)
+						}
 					}
 				}
 				log.Printf("sending %v", entryC)
