@@ -227,12 +227,11 @@ func startConsumer(ctx context.Context, kafkaBrokers string, tlsConfig *TLSConfi
 					log.Printf("failed to unmarshal a data point: %v", err)
 					continue
 				}
-				log.Printf("looking for fields: %v", config.Fields)
 				entryC := make(map[string]interface{})
 				switch config.Type {
 				case "histogram", "top-k":
 					for key, value := range entry {
-						entryC[key] = value.(int)
+						entryC[key] = value.(float64)
 					}
 				default:
 					for key, entryType := range config.Fields {
@@ -251,7 +250,6 @@ func startConsumer(ctx context.Context, kafkaBrokers string, tlsConfig *TLSConfi
 						}
 					}
 				}
-				log.Printf("sending %v", entryC)
 				p, err := client.NewPoint(
 					config.Topic,
 					config.Tags,
