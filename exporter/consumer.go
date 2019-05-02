@@ -186,20 +186,6 @@ func NewConsumer(config ConsumerConfig) (*Consumer, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to create new kafka client")
 	}
-	topics, err := client.Topics()
-	if err != nil {
-		return nil, errors.Annotate(err, "unable to retrieve topic(s) metadata")
-	}
-	found := false
-	for _, topic := range topics {
-		if config.Topic == topic {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return nil, fmt.Errorf("unable to find topic %s in cluster", config.Topic)
-	}
 
 	group, err := newConsumerGroupFromClient(config.GroupName, client)
 	if err != nil {
@@ -246,8 +232,12 @@ func (c *Consumer) consumeLoop() error {
 		err := c.group.Consume(c.Context, []string{c.Topic}, c)
 		if err != nil {
 			zapctx.Error(context.Background(), "consumer error", zaputil.Error(err))
+			continue
 		}
+
 		select {
+		case err := <-c.group.Errors():
+			return errors.Annotate(err, "there was a problem consuming")
 		case <-c.Context.Done():
 			return nil
 		case <-time.After(c.ConsumePeriod):

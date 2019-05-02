@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math"
-	"math/rand"
 	"os"
 	"os/signal"
 	"strconv"
@@ -145,49 +143,27 @@ func main() {
 		log.Fatalf("failed to create database: %v", err)
 	}
 
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
 	consumers := make([]*Consumer, 0)
-	go func() {
-		tries := 0
-		nextTime := (time.Duration(math.Exp2(float64(tries))) * time.Millisecond) + time.Duration(rand.Intn(100))
-		timer := time.NewTimer(nextTime)
-		topics := config.Topics
+	for _, topicConfig := range config.Topics {
+		consumer, err := startConsumer(ctx, config.kafkaBrokers(), tlsConfig, httpClient, topicConfig)
+		if err != nil {
+			log.Printf("failed to start consumer with topic: %s %v, exiting in 5s", topicConfig.Topic, err)
 
-		for len(topics) > 0 {
-			var tmpTopics []TopicConfig
-
-			for _, topicConfig := range topics {
-				consumer, err := startConsumer(ctx, config.kafkaBrokers(), tlsConfig, httpClient, topicConfig)
-				if err != nil {
-					log.Printf("failed to start consumer with topic: %s: %v", topicConfig.Topic, err)
-					tmpTopics = append(tmpTopics, topicConfig)
-				} else {
-					consumers = append(consumers, consumer)
-				}
-			}
-			topics = tmpTopics
-
-			tries++
-			nextTime = (time.Duration(math.Exp2(float64(tries))) * time.Millisecond) + time.Duration(rand.Intn(100))
-			if nextTime > maxBackoff {
-				log.Printf("next timer %+v surpasses the max backoff time of %+v, setting to max backoff time\n", nextTime.String(), maxBackoff.String())
-				nextTime = maxBackoff
-			}
-
-			timer = time.NewTimer(nextTime)
-			var failingTopics []string
-			for _, topic := range topics {
-				failingTopics = append(failingTopics, topic.Topic)
-			}
-			log.Printf("scheduling next retry: %+v, tries: %d, topics failing: %+v\n", nextTime.String(), tries+1, failingTopics)
+			timer := time.NewTimer(5 * time.Second)
 
 			select {
-			case <-ctx.Done():
-				log.Println("context canceled, exiting backoff")
-				return
 			case <-timer.C:
+				os.Exit(1)
+			case <-c:
+				os.Exit(1)
 			}
+		} else {
+			consumers = append(consumers, consumer)
 		}
-	}()
+	}
 
 	defer func() {
 		for _, consumer := range consumers {
@@ -198,9 +174,6 @@ func main() {
 			}
 		}
 	}()
-
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
 
 	select {
 	case <-c:
