@@ -218,7 +218,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 		var entry map[string]interface{}
 		err := json.Unmarshal(datum, &entry)
 		if err != nil {
-			log.Printf("failed to unmarshal a data point: %v", err)
+			log.Printf("failed to unmarshal a data point %q: %v", string(datum), err)
 			continue
 		}
 		entryC := make(map[string]interface{})
@@ -230,6 +230,8 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 					v, err := strconv.Atoi(key)
 					if err == nil {
 						k = fmt.Sprintf(c.config.KeyFormat, v)
+					} else {
+						log.Printf("warning: failed to parse integer key %q: %v", key, err)
 					}
 				}
 				entryC[k] = value.(float64)
@@ -238,7 +240,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 			for key, entryType := range c.config.Fields {
 				entryValue, ok := entry[key]
 				if !ok {
-					log.Printf("entry key not found: %v", key)
+					log.Printf("entry key %q not found", key)
 					continue
 				}
 				switch entryType {
@@ -247,7 +249,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 				case "string":
 					entryC[key] = entryValue.(string)
 				default:
-					log.Printf("unknown entry type %v", entryType)
+					log.Printf("unknown entry type %q", entryType)
 				}
 			}
 		}
@@ -258,7 +260,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 			timestamps[i],
 		)
 		if err != nil {
-			log.Printf("failed to create a new data point")
+			log.Printf("failed to create data point for %#v: %v", entry, err)
 			continue
 		}
 		points[i] = p
