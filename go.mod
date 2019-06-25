@@ -1,4 +1,4 @@
-module github.com/cloud-green/metamorphosis
+module github.com/cmars/metamorphosis
 
 go 1.12
 
