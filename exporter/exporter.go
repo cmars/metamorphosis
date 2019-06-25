@@ -231,7 +231,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 					if err == nil {
 						k = fmt.Sprintf(c.config.KeyFormat, v)
 					} else {
-						log.Printf("warning: failed to parse integer key %q: %v", key, err)
+						log.Printf("warning: failed to parse integer key %q in %#v: %v", key, entry, err)
 					}
 				}
 				entryC[k] = value.(float64)
@@ -240,7 +240,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 			for key, entryType := range c.config.Fields {
 				entryValue, ok := entry[key]
 				if !ok {
-					log.Printf("entry key %q not found", key)
+					log.Printf("entry key %q not found in %#v", key, entry)
 					continue
 				}
 				switch entryType {
@@ -249,7 +249,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 				case "string":
 					entryC[key] = entryValue.(string)
 				default:
-					log.Printf("unknown entry type %q", entryType)
+					log.Printf("unknown entry type %q in %#v", entryType, entry)
 				}
 			}
 		}
