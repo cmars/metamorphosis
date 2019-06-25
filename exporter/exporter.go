@@ -253,6 +253,10 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 				}
 			}
 		}
+		if len(entryC) == 0 {
+			log.Printf("empty data point for %#v", entryC)
+			continue
+		}
 		p, err := client.NewPoint(
 			c.config.Topic,
 			c.config.Tags,
