@@ -7,7 +7,7 @@ all: snap charm
 snap: metamorphosis_$(VERSION)_amd64.snap
 
 metamorphosis_$(VERSION)_amd64.snap:
-	snapcraft
+	snapcraft --use-lxd
 
 .PHONY: charm
 charm: charm/builds/metamorphosis
