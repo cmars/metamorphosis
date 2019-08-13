@@ -15,6 +15,7 @@ before_install:
 - sudo snap install snapcraft --classic
 - sudo apt-get install -y build-essential flake8
 install:
+- git config --global --unset protocol.version  # https://github.com/juju/charm-tools/issues/532
 - make lint
 - GOPATH=$(mktemp -d) go test ./...
 - sudo su travis -c make
