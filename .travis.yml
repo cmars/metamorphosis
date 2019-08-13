@@ -4,7 +4,7 @@ go:
 - 1.12
 before_install:
 - sudo snap install snapcraft --classic
-- sudo snap install multipass --classic
+- sudo snap install multipass --classic --beta
 - sudo apt-get install -y build-essential flake8
 install:
 - make lint
