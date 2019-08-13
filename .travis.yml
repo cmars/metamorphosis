@@ -2,6 +2,7 @@ dist: bionic
 language: go
 go:
 - 1.12
+
 before_install:
 # Install and set up LXD. LXD is used to build the snap.
 - sudo apt remove -y --purge lxd lxd-client
@@ -14,6 +15,7 @@ before_install:
 - sudo snap install charm --classic
 - sudo snap install snapcraft --classic
 - sudo apt-get install -y build-essential flake8
+
 install:
 # Workaround for https://github.com/juju/charm-tools/issues/532
 - git config --global --unset protocol.version
@@ -23,3 +25,11 @@ install:
 - GOPATH=$(mktemp -d) go test ./...
 # Build snap and charm
 - sudo su travis -c make
+
+deploy:
+- skip_cleanup: true
+  on:
+    branch: master
+  provider: snap
+  snap: metamorphosis_*.snap
+  channel: edge
