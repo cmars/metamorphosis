@@ -3,9 +3,12 @@
 package main_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -129,6 +132,64 @@ func TestConsumer(t *testing.T) {
 		}
 	}
 
+}
+
+func TestLogMessages(t *testing.T) {
+	c := qt.New(t)
+
+	c.AddCleanup(func() {
+		log.SetOutput(os.Stderr)
+	})
+
+	tests := []struct {
+		about       string
+		config      exporter.TopicConfig
+		message     string
+		logContains string
+	}{{
+		about: "log missing entry key in message",
+		config: exporter.TopicConfig{
+			Topic: "test-topic",
+			Fields: map[string]string{
+				"foo": "number",
+				"bar": "string",
+			},
+		},
+		message:     `{"bar":"baz"}`,
+		logContains: `entry key "foo" not found in topic "test-topic" message {"bar":"baz"}`,
+	}, {
+		about: "log unknown entry type in config",
+		config: exporter.TopicConfig{
+			Topic: "test-topic",
+			Fields: map[string]string{
+				"foo": "number",
+				"bar": "mystery",
+			},
+		},
+		message:     `{"foo":1,"bar":"baz"}`,
+		logContains: `unknown entry type "mystery" for entry key "bar" topic "test-topic"`,
+	}, {
+		about: "log message unmarshal error",
+		config: exporter.TopicConfig{
+			Topic: "test-topic",
+			Fields: map[string]string{
+				"foo": "number",
+				"bar": "string",
+			},
+		},
+		message:     `}{`,
+		logContains: `failed to unmarshal a data point`,
+	}}
+	for i, test := range tests {
+		c.Logf("running test %d: %s", i, test.about)
+		var buf bytes.Buffer
+		log.SetOutput(&buf)
+		influxClient := newTestInfluxClient()
+		err := exporter.ProcessData(context.Background(), test.config, influxClient, [][]byte{[]byte(test.message)},
+			[]time.Time{time.Date(2019, 5, 1, 12, 0, 0, 0, time.UTC)})
+		c.Check(err, qt.IsNil)
+		c.Check(buf.String(), qt.Contains, test.logContains)
+	}
 }
 
 func newTestInfluxClient() *testInfluxClient {
