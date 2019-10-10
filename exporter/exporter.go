@@ -218,7 +218,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 		var entry map[string]interface{}
 		err := json.Unmarshal(datum, &entry)
 		if err != nil {
-			log.Printf("failed to unmarshal a data point: %v", err)
+			log.Printf("failed to unmarshal a data point: %v, message: %s", err, string(datum))
 			continue
 		}
 		entryC := make(map[string]interface{})
@@ -238,7 +238,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 			for key, entryType := range c.config.Fields {
 				entryValue, ok := entry[key]
 				if !ok {
-					log.Printf("entry key not found: %v", key)
+					log.Printf("entry key %q not found in topic %q message %s", key, c.config.Topic, string(datum))
 					continue
 				}
 				switch entryType {
@@ -247,7 +247,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 				case "string":
 					entryC[key] = entryValue.(string)
 				default:
-					log.Printf("unknown entry type %v", entryType)
+					log.Printf("unknown entry type %q for entry key %q topic %q", entryType, key, c.config.Topic)
 				}
 			}
 		}
@@ -258,7 +258,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 			timestamps[i],
 		)
 		if err != nil {
-			log.Printf("failed to create a new data point")
+			log.Printf("failed to create a new data point: %v", err)
 			continue
 		}
 		points[i] = p
