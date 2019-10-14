@@ -122,7 +122,7 @@ class Metamorphosis(object):
         return snap.get_installed_version(METAMORPHOSIS_SNAP) or 'unknown'
 
     def is_autostart_disabled(self):
-        return not os.path.exists(self._autostart_disabled_path())
+        return os.path.exists(self._autostart_disabled_path())
 
     def set_autostart_disable(self, disable):
         if disable:
