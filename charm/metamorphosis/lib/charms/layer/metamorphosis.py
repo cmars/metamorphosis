@@ -128,6 +128,8 @@ class Metamorphosis(object):
         if disable:
             with open(self._autostart_disabled_path(), "w") as f:
                 f.write(datetime.datetime.utcnow().isoformat())
+            hookenv.status_set('blocked',
+                               'metamorphosis not running; autostart disabled')
         elif self.is_autostart_disabled():
             os.unlink(self._autostart_disabled_path())
 
