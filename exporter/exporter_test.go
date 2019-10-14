@@ -113,6 +113,31 @@ func TestConsumer(t *testing.T) {
 			point := p[0]
 			c.Assert(point.String(), qt.Equals, fmt.Sprintf(`test-topic a=42,b="just a string" 1556712000000000000`))
 		},
+	}, {
+		about: "timestamp accuracy",
+		config: exporter.TopicConfig{
+			Topic: "test-topic",
+			Fields: map[string]string{
+				"a": "number",
+				"b": "string",
+				"d": "number",
+			},
+			TimestampAccuracy: "d",
+		},
+		data: map[string]interface{}{
+			"a": 42,
+			"b": "just a string",
+			"c": 5,
+		},
+		timestamps: []time.Time{
+			time.Date(2019, 5, 1, 12, 3, 5, 7, time.UTC),
+		},
+		assertBatches: func(c *qt.C, points client.BatchPoints) {
+			p := points.Points()
+			c.Assert(p, qt.HasLen, 1)
+			point := p[0]
+			c.Assert(point.String(), qt.Equals, fmt.Sprintf(`test-topic a=42,b="just a string" 1556668800000000000`))
+		},
 	}}
 
 	for i, test := range tests {
@@ -189,6 +214,62 @@ func TestLogMessages(t *testing.T) {
 			[]time.Time{time.Date(2019, 5, 1, 12, 0, 0, 0, time.UTC)})
 		c.Check(err, qt.IsNil)
 		c.Check(buf.String(), qt.Contains, test.logContains)
+	}
+}
+
+func TestConfigValidation(t *testing.T) {
+	c := qt.New(t)
+	tests := []struct {
+		about  string
+		config exporter.Config
+		error  string
+	}{{
+		about: "valid config, no timestamp accuracy",
+		config: exporter.Config{
+			Topics: []exporter.TopicConfig{{
+				Topic: "test-topic",
+				Fields: map[string]string{
+					"foo": "number",
+					"bar": "string",
+				},
+			}},
+		},
+		error: "",
+	}, {
+		about: "valid config, with timestamp accuracy",
+		config: exporter.Config{
+			Topics: []exporter.TopicConfig{{
+				Topic:             "test-topic",
+				TimestampAccuracy: "d",
+				Fields: map[string]string{
+					"foo": "number",
+					"bar": "string",
+				},
+			}},
+		},
+		error: "",
+	}, {
+		about: "invalid config, invalid timestamp accuracy",
+		config: exporter.Config{
+			Topics: []exporter.TopicConfig{{
+				Topic:             "test-topic",
+				TimestampAccuracy: "boo",
+				Fields: map[string]string{
+					"foo": "number",
+					"bar": "string",
+				},
+			}},
+		},
+		error: `invalid timestamp accuracy value: "boo", topic: "test-topic"`,
+	}}
+	for i, test := range tests {
+		c.Logf("running test %d: %s", i, test.about)
+		err := test.config.Validate()
+		if test.error == "" {
+			c.Check(err, qt.IsNil)
+		} else {
+			c.Check(err.Error(), qt.Matches, test.error)
+		}
 	}
 }
 
