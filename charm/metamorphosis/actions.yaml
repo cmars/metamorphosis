@@ -1,0 +1,10 @@
+disable:
+  description: Stop service and disable autostart
+  params: {}
+  required: []
+  additionalProperties: false
+enable:
+  description: Start service and enable autostart
+  params: {}
+  required: []
+  additionalProperties: false

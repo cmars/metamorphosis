@@ -16,6 +16,7 @@
 import os
 import re
 import socket
+import datetime
 
 from charmhelpers.core import host, hookenv
 from charmhelpers.core.templating import render
@@ -119,6 +120,19 @@ class Metamorphosis(object):
         will be returned
         '''
         return snap.get_installed_version(METAMORPHOSIS_SNAP) or 'unknown'
+
+    def is_autostart_disabled(self):
+        return not os.path.exists(self._autostart_disabled_path())
+
+    def set_autostart_disable(self, disable):
+        if disable:
+            with open(self._autostart_disabled_path(), "w") as f:
+                f.write(datetime.datetime.utcnow().isoformat())
+        elif self.is_autostart_disabled():
+            os.unlink(self._autostart_disabled_path())
+
+    def _autostart_disabled_path(self):
+        return os.path.join(hookenv.charm_dir(), ".autostart.disabled")
 
 
 def resolve_private_address(addr):
