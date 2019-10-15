@@ -1,0 +1,13 @@
+#!/usr/local/sbin/charm-env python3
+
+import sys
+
+from charmhelpers.core import hookenv
+
+from charms.layer.metamorphosis import Metamorphosis
+
+if __name__ == '__main__':
+    m = Metamorphosis()
+    m.set_autostart_disable(False)
+    m.start()
+    hookenv.action_set({'outcome': 'success'})

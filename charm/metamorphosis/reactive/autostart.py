@@ -12,6 +12,8 @@ def autostart_service():
     '''
     m = Metamorphosis()
 
+    if m.is_autostart_disabled():
+        return
     if m.is_running():
         hookenv.status_set('active', 'ready')
         return
