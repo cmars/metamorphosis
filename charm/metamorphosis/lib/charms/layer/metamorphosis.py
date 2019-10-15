@@ -122,12 +122,14 @@ class Metamorphosis(object):
         return snap.get_installed_version(METAMORPHOSIS_SNAP) or 'unknown'
 
     def is_autostart_disabled(self):
-        return not os.path.exists(self._autostart_disabled_path())
+        return os.path.exists(self._autostart_disabled_path())
 
     def set_autostart_disable(self, disable):
         if disable:
             with open(self._autostart_disabled_path(), "w") as f:
                 f.write(datetime.datetime.utcnow().isoformat())
+            hookenv.status_set('blocked',
+                               'metamorphosis not running; autostart disabled')
         elif self.is_autostart_disabled():
             os.unlink(self._autostart_disabled_path())
 
