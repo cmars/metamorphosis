@@ -35,6 +35,50 @@ type TopicConfig struct {
 	Tags      map[string]string `yaml:"tags,omitempty"`
 	Fields    map[string]string `yaml:"fields,omitempty"`
 	KeyFormat string            `yaml:"key-format,omitempty"`
+	/* TimestampAccuracy specifies the accuracy to which timestamps will
+	   be truncated before writing to influx.
+	   If not set, timestamps will not be truncated.
+	   Accepted values:
+	     d, day
+	     H, hour
+	     m, minute
+	     s, second
+	*/
+	TimestampAccuracy string `yaml:"timestamp-accuracy,omitempty"`
+}
+
+// GetTimestampAccuracy returns the accuracy the datapoint timestamp should
+// be truncated to for this topic.
+// Invalid values will result in no truncation. The TopicConfig should
+// be validated before, using the Validate method.
+func (c TopicConfig) GetTimestampAccuracy() time.Duration {
+	switch c.TimestampAccuracy {
+	case "d", "day":
+		return time.Hour * 24
+	case "H", "hour":
+		return time.Hour
+	case "m", "minute":
+		return time.Minute
+	case "s", "second":
+		return time.Second
+	default:
+		return time.Duration(0)
+	}
+}
+
+// Validate validates the TopicConfig.
+func (c TopicConfig) Validate() error {
+	// Validate the timestamp accuracy.
+	switch c.TimestampAccuracy {
+	case "d", "day":
+	case "H", "hour":
+	case "m", "minute":
+	case "s", "second":
+	case "":
+	default:
+		return fmt.Errorf("invalid timestamp accuracy value: %q, topic: %q", c.TimestampAccuracy, c.Topic)
+	}
+	return nil
 }
 
 type Config struct {
@@ -42,6 +86,16 @@ type Config struct {
 	KafkaTLS     *tlsConfig    `yaml:"kafka-tls,omitempty"`
 	InfluxDB     string        `yaml:"influx-db,omitempty"`
 	Topics       []TopicConfig `yaml:"topics"`
+}
+
+// Validate validates the Config.
+func (c Config) Validate() error {
+	for _, t := range c.Topics {
+		if err := t.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 type tlsConfig struct {
@@ -121,6 +175,10 @@ func main() {
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
 		log.Fatalf("failed to unmarshal the config file: %v", err)
+	}
+	err = config.Validate()
+	if err != nil {
+		log.Fatalf("invalid config: %v", err)
 	}
 	tlsConfig, err := config.tls()
 	if err != nil {
@@ -221,6 +279,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 			log.Printf("failed to unmarshal a data point: %v, message: %s", err, string(datum))
 			continue
 		}
+		ts := timestamps[i].Truncate(c.config.GetTimestampAccuracy())
 		entryC := make(map[string]interface{})
 		switch c.config.Type {
 		case "histogram", "top-k":
@@ -255,7 +314,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 			c.config.Topic,
 			c.config.Tags,
 			entryC,
-			timestamps[i],
+			ts,
 		)
 		if err != nil {
 			log.Printf("failed to create a new data point: %v", err)
