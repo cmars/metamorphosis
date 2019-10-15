@@ -6,6 +6,8 @@ includes:
 - 'interface:tls-certificates'
 - 'layer:tls-client'
 options:
+  basic:
+    include_system_packages: True
   snap:
     core: {}
     metamorphosis:
