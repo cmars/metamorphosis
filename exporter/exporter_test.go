@@ -231,6 +231,39 @@ func TestLogMessages(t *testing.T) {
 		},
 		message:     `}{`,
 		logContains: `failed to unmarshal a data point`,
+	}, {
+		about: "timestamp field missing",
+		config: exporter.TopicConfig{
+			Topic: "test-topic",
+			Fields: map[string]string{
+				"a": "number",
+			},
+			TimestampField: "ts",
+		},
+		message:     `{"a": 4}`,
+		logContains: `timestamp field "ts" not present or incorrectly formatted`,
+	}, {
+		about: "timestamp field invalid type",
+		config: exporter.TopicConfig{
+			Topic: "test-topic",
+			Fields: map[string]string{
+				"a": "number",
+			},
+			TimestampField: "ts",
+		},
+		message:     `{"a": 4, "ts": 5}`,
+		logContains: `timestamp field "ts" not present or incorrectly formatted`,
+	}, {
+		about: "timestamp not rfc3339",
+		config: exporter.TopicConfig{
+			Topic: "test-topic",
+			Fields: map[string]string{
+				"a": "number",
+			},
+			TimestampField: "ts",
+		},
+		message:     `{"a": 4, "ts": "a long long time ago"}`,
+		logContains: `failed to parse timestamp field value "a long long time ago"`,
 	}}
 	for i, test := range tests {
 		c.Logf("running test %d: %s", i, test.about)
