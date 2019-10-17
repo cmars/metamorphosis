@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ import (
 )
 
 const maxBackoff = time.Minute * 5
+const maxTopNEntries = 100
 
 var (
 	kafkaBrokers = os.Getenv("KAFKA_BROKERS")
@@ -29,12 +31,24 @@ var (
 	configFile   = os.Getenv("CONFIG")
 )
 
+/* TopicConfig represents how message in a topic should be interpreted and
+transformed.
+
+- If `Type` is `fields`, empty or undeclared, you must define a `fields`
+  mapping which will be used to fetch fields from the message.
+- If `Type` is `top-k` or `histogram`, you may define a `key-format` string to
+  format integer keys using the fmt.Sprintf function.
+- If `Type` is `top-n`, you must defined a `number` integer which will be the
+  `n` in `top-n`.
+*/
 type TopicConfig struct {
 	Topic     string            `yaml:"topic"`
 	Type      string            `yaml:"type,omitempty"`
 	Tags      map[string]string `yaml:"tags,omitempty"`
 	Fields    map[string]string `yaml:"fields,omitempty"`
 	KeyFormat string            `yaml:"key-format,omitempty"`
+	Number    int               `yaml:"number,omitempty"`
+
 	/* TimestampAccuracy specifies the accuracy to which timestamps will
 	   be truncated before writing to influx.
 	   If not set, timestamps will not be truncated.
@@ -69,6 +83,17 @@ func (c TopicConfig) GetTimestampAccuracy() time.Duration {
 
 // Validate validates the TopicConfig.
 func (c TopicConfig) Validate() error {
+	// Validate Type and associated fields
+	switch c.Type {
+	case "fields", "":
+		if len(c.Fields) == 0 {
+			return fmt.Errorf("a 'fields' translation requires 'fields' to be specified (topic: %q)", c.Topic)
+		}
+	case "top-n":
+		if c.Number <= 0 || c.Number > maxTopNEntries {
+			return fmt.Errorf("a 'top-n' translation requires 'number' to be between 1 and 100 (topic: %q)", c.Topic)
+		}
+	}
 	// Validate the timestamp accuracy.
 	switch c.TimestampAccuracy {
 	case "d", "day":
@@ -271,8 +296,34 @@ type dataConsumer struct {
 	influxClient client.Client
 }
 
+func addPoint(pointsList *[]*client.Point, tc TopicConfig, tags map[string]string, fields map[string]interface{}, ts time.Time) {
+	if tags == nil {
+		tags = make(map[string]string)
+	}
+	for key, value := range tc.Tags {
+		tags[key] = value
+	}
+	p, err := client.NewPoint(tc.Topic, tags, fields, ts)
+	if err != nil {
+		log.Printf("failed to create a new data point: %v", err)
+		return
+	}
+	*pointsList = append(*pointsList, p)
+}
+
+type topEntry struct {
+	Key   string
+	Value float64
+}
+
 func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []time.Time) error {
-	points := make([]*client.Point, len(data))
+	// Pre-allocate the array of points depending on the type of translation
+	nPoints := len(data)
+	if c.config.Type == "top-n" {
+		nPoints = len(data) * c.config.Number
+	}
+	points := make([]*client.Point, 0, nPoints)
+
 	for i, datum := range data {
 		var entry map[string]interface{}
 		err := json.Unmarshal(datum, &entry)
@@ -308,7 +359,8 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 				}
 				entryC[k] = value.(float64)
 			}
-		default:
+			addPoint(&points, c.config, nil, entryC, ts)
+		case "fields", "":
 			for key, entryType := range c.config.Fields {
 				entryValue, ok := entry[key]
 				if !ok {
@@ -324,19 +376,44 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 					log.Printf("unknown entry type %q for entry key %q topic %q", entryType, key, c.config.Topic)
 				}
 			}
+			addPoint(&points, c.config, nil, entryC, ts)
+		case "top-n":
+			if len(entry) > maxTopNEntries {
+				log.Printf("top-n entry length of %d exceeds limit of %d in topic %q", len(entry), maxTopNEntries, c.config.Topic)
+				continue
+			}
+
+			// Gather all entries
+			topSize := len(entry)
+			if topSize < c.config.Number {
+				topSize = c.config.Number
+			}
+			n := 0
+			topN := make([]topEntry, topSize)
+			for key, value := range entry {
+				topN[n] = topEntry{
+					Key:   key,
+					Value: value.(float64),
+				}
+				n += 1
+			}
+
+			// Sort to get actual top-n ranking
+			sort.Slice(topN, func(a, b int) bool {
+				return topN[a].Value > topN[b].Value
+			})
+
+			// Generate points only for the top-n subset required by the config
+			for n = 0; n < c.config.Number; n++ {
+				entryC["name"] = topN[n].Key
+				entryC["value"] = topN[n].Value
+				addPoint(&points, c.config, map[string]string{
+					"top": strconv.Itoa(n + 1),
+				}, entryC, ts)
+			}
 		}
-		p, err := client.NewPoint(
-			c.config.Topic,
-			c.config.Tags,
-			entryC,
-			ts,
-		)
-		if err != nil {
-			log.Printf("failed to create a new data point: %v", err)
-			continue
-		}
-		points[i] = p
 	}
+
 	for len(points) > 0 {
 		bp, err := client.NewBatchPoints(
 			client.BatchPointsConfig{
