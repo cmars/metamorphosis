@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -90,9 +91,111 @@ func TestConsumer(t *testing.T) {
 			c.Assert(point.String(), qt.Equals, fmt.Sprintf("test-topic a=1,b=20,c=5 1556712000000000000"))
 		},
 	}, {
+		about: "top-n-not-full",
+		config: exporter.TopicConfig{
+			Topic:  "test-topic",
+			Type:   "top-n",
+			Number: 10,
+		},
+		data: map[string]interface{}{
+			"a": 1,
+			"b": 20,
+			"c": 5,
+		},
+		timestamps: []time.Time{
+			time.Date(2019, 10, 16, 16, 27, 30, 0, time.UTC),
+		},
+		assertBatches: func(c *qt.C, points client.BatchPoints) {
+			p := points.Points()
+			c.Assert(p, qt.HasLen, 10)
+			c.Assert(p[0].String(), qt.Equals, fmt.Sprintf(`test-topic,top=1 name="b",value=20 1571243250000000000`))
+			c.Assert(p[1].String(), qt.Equals, fmt.Sprintf(`test-topic,top=2 name="c",value=5 1571243250000000000`))
+			c.Assert(p[2].String(), qt.Equals, fmt.Sprintf(`test-topic,top=3 name="a",value=1 1571243250000000000`))
+			for i := 3; i < 10; i++ {
+				c.Assert(p[i].String(), qt.Equals, fmt.Sprintf(`test-topic,top=%d name="",value=0 1571243250000000000`, i+1))
+			}
+		},
+	}, {
+		about: "top-n-full-with-tie",
+		config: exporter.TopicConfig{
+			Topic:  "test-topic",
+			Type:   "top-n",
+			Number: 4,
+		},
+		data: map[string]interface{}{
+			"d": 1,
+			"a": 1,
+			"b": 20,
+			"c": 5,
+		},
+		timestamps: []time.Time{
+			time.Date(2019, 10, 16, 16, 27, 30, 0, time.UTC),
+		},
+		assertBatches: func(c *qt.C, points client.BatchPoints) {
+			p := points.Points()
+			c.Assert(p, qt.HasLen, 4)
+			c.Assert(p[0].String(), qt.Equals, fmt.Sprintf(`test-topic,top=1 name="b",value=20 1571243250000000000`))
+			c.Assert(p[1].String(), qt.Equals, fmt.Sprintf(`test-topic,top=2 name="c",value=5 1571243250000000000`))
+
+			// In case of a tie, the order is undefined (and it doesn't really matter)
+			if p[2].String() == `test-topic,top=3 name="a",value=1 1571243250000000000` {
+				c.Assert(p[3].String(), qt.Equals, fmt.Sprintf(`test-topic,top=4 name="d",value=1 1571243250000000000`))
+			} else if p[2].String() == `test-topic,top=3 name="d",value=1 1571243250000000000` {
+				c.Assert(p[3].String(), qt.Equals, fmt.Sprintf(`test-topic,top=4 name="a",value=1 1571243250000000000`))
+			} else {
+				c.Log("Failing test: expected a/d entries to be in top-3/4")
+				c.Fail()
+			}
+		},
+	}, {
+		about: "top-n-more-than-full",
+		config: exporter.TopicConfig{
+			Topic:  "test-topic",
+			Type:   "top-n",
+			Number: 4,
+		},
+		data: map[string]interface{}{
+			"a": 1,
+			"b": 20,
+			"c": 5,
+			"d": 1,
+			"e": 7,
+			"f": 4,
+		},
+		timestamps: []time.Time{
+			time.Date(2019, 10, 16, 16, 27, 30, 0, time.UTC),
+		},
+		assertBatches: func(c *qt.C, points client.BatchPoints) {
+			p := points.Points()
+			c.Assert(p, qt.HasLen, 4)
+			c.Assert(p[0].String(), qt.Equals, fmt.Sprintf(`test-topic,top=1 name="b",value=20 1571243250000000000`))
+			c.Assert(p[1].String(), qt.Equals, fmt.Sprintf(`test-topic,top=2 name="e",value=7 1571243250000000000`))
+			c.Assert(p[2].String(), qt.Equals, fmt.Sprintf(`test-topic,top=3 name="c",value=5 1571243250000000000`))
+			c.Assert(p[3].String(), qt.Equals, fmt.Sprintf(`test-topic,top=4 name="f",value=4 1571243250000000000`))
+		},
+	}, {
+		about: "top-n-empty",
+		config: exporter.TopicConfig{
+			Topic:  "test-topic",
+			Type:   "top-n",
+			Number: 100,
+		},
+		data: map[string]interface{}{},
+		timestamps: []time.Time{
+			time.Date(2019, 10, 16, 16, 27, 30, 0, time.UTC),
+		},
+		assertBatches: func(c *qt.C, points client.BatchPoints) {
+			p := points.Points()
+			c.Assert(p, qt.HasLen, 100)
+			for i := 0; i < 100; i++ {
+				c.Assert(p[i].String(), qt.Equals, fmt.Sprintf(`test-topic,top=%d name="",value=0 1571243250000000000`, i+1))
+			}
+		},
+	}, {
 		about: "fields",
 		config: exporter.TopicConfig{
 			Topic: "test-topic",
+			// By not declaring Type, Type = "field" is assumed
 			Fields: map[string]string{
 				"a": "number",
 				"b": "string",
@@ -193,6 +296,13 @@ func TestLogMessages(t *testing.T) {
 		log.SetOutput(os.Stderr)
 	})
 
+	topNExceeds := make(map[string]int)
+	// 103 is from maxTopNEntries + 3
+	for i := 0; i < 103; i++ {
+		topNExceeds["entry"+strconv.Itoa(i)] = i
+	}
+	topNExceedsJSON, _ := json.Marshal(topNExceeds)
+
 	tests := []struct {
 		about       string
 		config      exporter.TopicConfig
@@ -264,6 +374,15 @@ func TestLogMessages(t *testing.T) {
 		},
 		message:     `{"a": 4, "ts": "a long long time ago"}`,
 		logContains: `failed to parse timestamp field value "a long long time ago"`,
+	}, {
+		about: "log top-n message exceeds size",
+		config: exporter.TopicConfig{
+			Topic:  "test-topic",
+			Type:   "top-n",
+			Number: 5,
+		},
+		message:     string(topNExceedsJSON),
+		logContains: `top-n entry length of 103 exceeds limit of 100 in topic "test-topic"`,
 	}}
 	for i, test := range tests {
 		c.Logf("running test %d: %s", i, test.about)
@@ -309,6 +428,53 @@ func TestConfigValidation(t *testing.T) {
 		},
 		error: "",
 	}, {
+		about: "valid config for top-n",
+		config: exporter.Config{
+			Topics: []exporter.TopicConfig{{
+				Topic:  "test-topic",
+				Type:   "top-n",
+				Number: 50,
+			}},
+		},
+		error: "",
+	}, {
+		about: "invalid config, missing fields",
+		config: exporter.Config{
+			Topics: []exporter.TopicConfig{{
+				Topic: "test-topic",
+			}},
+		},
+		error: `a 'fields' translation requires 'fields' to be specified (topic: "test-topic")`,
+	}, {
+		about: "invalid config, missing number in top-n",
+		config: exporter.Config{
+			Topics: []exporter.TopicConfig{{
+				Topic: "test-topic",
+				Type:  "top-n",
+			}},
+		},
+		error: `a 'top-n' translation requires 'number' to be between 1 and 100 (topic: "test-topic")`,
+	}, {
+		about: "invalid config, number below minimum in top-n",
+		config: exporter.Config{
+			Topics: []exporter.TopicConfig{{
+				Topic:  "test-topic",
+				Type:   "top-n",
+				Number: 0,
+			}},
+		},
+		error: `a 'top-n' translation requires 'number' to be between 1 and 100 (topic: "test-topic")`,
+	}, {
+		about: "invalid config, number beyond maximum in top-n",
+		config: exporter.Config{
+			Topics: []exporter.TopicConfig{{
+				Topic:  "test-topic",
+				Type:   "top-n",
+				Number: 102,
+			}},
+		},
+		error: `a 'top-n' translation requires 'number' to be between 1 and 100 (topic: "test-topic")`,
+	}, {
 		about: "invalid config, invalid timestamp accuracy",
 		config: exporter.Config{
 			Topics: []exporter.TopicConfig{{
@@ -328,7 +494,7 @@ func TestConfigValidation(t *testing.T) {
 		if test.error == "" {
 			c.Check(err, qt.IsNil)
 		} else {
-			c.Check(err.Error(), qt.Matches, test.error)
+			c.Check(err.Error(), qt.Equals, test.error)
 		}
 	}
 }
