@@ -217,6 +217,59 @@ func TestConsumer(t *testing.T) {
 			c.Assert(point.String(), qt.Equals, fmt.Sprintf(`test-topic a=42,b="just a string" 1556712000000000000`))
 		},
 	}, {
+		about: "fields-with-tags",
+		config: exporter.TopicConfig{
+			Topic: "test-topic",
+			// By not declaring Type, Type = "field" is assumed
+			Fields: map[string]string{
+				"a": "number",
+				"b": "string",
+			},
+			Tags: map[string]string{
+				"tag1":      "t1",
+				"something": "somevalue",
+			},
+		},
+		data: map[string]interface{}{
+			"a": 42,
+			"b": "just a string",
+		},
+		timestamps: []time.Time{
+			time.Date(2019, 5, 1, 12, 0, 0, 0, time.UTC),
+		},
+		assertBatches: func(c *qt.C, points client.BatchPoints) {
+			p := points.Points()
+			c.Assert(p, qt.HasLen, 1)
+			point := p[0]
+			c.Assert(point.String(), qt.Equals, fmt.Sprintf(`test-topic,something=somevalue,tag1=t1 a=42,b="just a string" 1556712000000000000`))
+		},
+	}, {
+		about: "fields-with-tags-with-field-ref",
+		config: exporter.TopicConfig{
+			Topic: "test-topic",
+			// By not declaring Type, Type = "field" is assumed
+			Fields: map[string]string{
+				"a": "number",
+			},
+			Tags: map[string]string{
+				"tag1": "t1",
+				"tagA": "$b",
+			},
+		},
+		data: map[string]interface{}{
+			"a": 42,
+			"b": "tagValue",
+		},
+		timestamps: []time.Time{
+			time.Date(2019, 5, 1, 12, 0, 0, 0, time.UTC),
+		},
+		assertBatches: func(c *qt.C, points client.BatchPoints) {
+			p := points.Points()
+			c.Assert(p, qt.HasLen, 1)
+			point := p[0]
+			c.Assert(point.String(), qt.Equals, fmt.Sprintf(`test-topic,tag1=t1,tagA=tagValue a=42 1556712000000000000`))
+		},
+	}, {
 		about: "timestamp accuracy",
 		config: exporter.TopicConfig{
 			Topic: "test-topic",
@@ -318,7 +371,7 @@ func TestLogMessages(t *testing.T) {
 			},
 		},
 		message:     `{"bar":"baz"}`,
-		logContains: `entry key "foo" not found in topic "test-topic" message {"bar":"baz"}`,
+		logContains: `entry key "foo" not found in topic "test-topic" message map[bar:baz]`,
 	}, {
 		about: "log unknown entry type in config",
 		config: exporter.TopicConfig{
@@ -330,6 +383,36 @@ func TestLogMessages(t *testing.T) {
 		},
 		message:     `{"foo":1,"bar":"baz"}`,
 		logContains: `unknown entry type "mystery" for entry key "bar" topic "test-topic"`,
+	}, {
+		about: "log tag reference not found",
+		config: exporter.TopicConfig{
+			Topic: "test-topic",
+			// By not declaring Type, Type = "field" is assumed
+			Fields: map[string]string{
+				"a": "number",
+			},
+			Tags: map[string]string{
+				"tag1": "t1",
+				"tagA": "$b",
+			},
+		},
+		message:     `{"a":42}`,
+		logContains: `field not found: tag "tagA" referencing field "b" in topic "test-topic" message map[a:42]`,
+	}, {
+		about: "log tag reference of invalid type",
+		config: exporter.TopicConfig{
+			Topic: "test-topic",
+			// By not declaring Type, Type = "field" is assumed
+			Fields: map[string]string{
+				"a": "number",
+			},
+			Tags: map[string]string{
+				"tag1": "t1",
+				"tagA": "$a",
+			},
+		},
+		message:     `{"a":42, "b":"msg"}`,
+		logContains: `tag values have to be strings: key "a" in topic "test-topic" message map[a:42 b:msg]`,
 	}, {
 		about: "log message unmarshal error",
 		config: exporter.TopicConfig{
