@@ -296,11 +296,12 @@ type dataConsumer struct {
 	influxClient client.Client
 }
 
-func addPoint(pointsList *[]*client.Point, tc TopicConfig, tags map[string]string, fields map[string]interface{}, ts time.Time) {
-	if tags == nil {
-		tags = make(map[string]string)
-	}
+func addPoint(pointsList *[]*client.Point, tc TopicConfig, extraTags map[string]string, fields map[string]interface{}, ts time.Time) {
+	tags := make(map[string]string)
 	for key, value := range tc.Tags {
+		tags[key] = value
+	}
+	for key, value := range extraTags {
 		tags[key] = value
 	}
 	p, err := client.NewPoint(tc.Topic, tags, fields, ts)
@@ -314,6 +315,45 @@ func addPoint(pointsList *[]*client.Point, tc TopicConfig, tags map[string]strin
 type topEntry struct {
 	Key   string
 	Value float64
+}
+
+func getFieldsAndTags(topic string, entry map[string]interface{}, tags map[string]string, fields map[string]string) (map[string]string, map[string]interface{}) {
+	tagsMap := make(map[string]string)
+	for tag, value := range tags {
+		if len(value) > 1 && value[0] == '$' {
+			key := value[1:]
+			actualValue, ok := entry[key]
+			if !ok {
+				log.Printf("field not found: tag %q referencing field %q in topic %q message %+v", tag, key, topic, entry)
+				continue
+			}
+			value, ok = actualValue.(string)
+			if !ok {
+				log.Printf("tag values have to be strings: key %q in topic %q message %+v", key, topic, entry)
+				continue
+			}
+		}
+		tagsMap[tag] = value
+	}
+
+	fieldsMap := make(map[string]interface{})
+	for key, fieldType := range fields {
+		fieldValue, ok := entry[key]
+		if !ok {
+			log.Printf("entry key %q not found in topic %q message %+v", key, topic, entry)
+			continue
+		}
+		switch fieldType {
+		case "number":
+			fieldsMap[key] = fieldValue.(float64)
+		case "string":
+			fieldsMap[key] = fieldValue.(string)
+		default:
+			log.Printf("unknown entry type %q for entry key %q topic %q", fieldType, key, topic)
+		}
+	}
+
+	return tagsMap, fieldsMap
 }
 
 func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []time.Time) error {
@@ -361,22 +401,8 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 			}
 			addPoint(&points, c.config, nil, entryC, ts)
 		case "fields", "":
-			for key, entryType := range c.config.Fields {
-				entryValue, ok := entry[key]
-				if !ok {
-					log.Printf("entry key %q not found in topic %q message %s", key, c.config.Topic, string(datum))
-					continue
-				}
-				switch entryType {
-				case "number":
-					entryC[key] = entryValue.(float64)
-				case "string":
-					entryC[key] = entryValue.(string)
-				default:
-					log.Printf("unknown entry type %q for entry key %q topic %q", entryType, key, c.config.Topic)
-				}
-			}
-			addPoint(&points, c.config, nil, entryC, ts)
+			tagsMap, fieldsMap := getFieldsAndTags(c.config.Topic, entry, c.config.Tags, c.config.Fields)
+			addPoint(&points, c.config, tagsMap, fieldsMap, ts)
 		case "top-n":
 			if len(entry) > maxTopNEntries {
 				log.Printf("top-n entry length of %d exceeds limit of %d in topic %q", len(entry), maxTopNEntries, c.config.Topic)
