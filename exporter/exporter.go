@@ -45,6 +45,7 @@ type TopicConfig struct {
 	     s, second
 	*/
 	TimestampAccuracy string `yaml:"timestamp-accuracy,omitempty"`
+	TimestampField    string `yaml:"timestamp-field,omitempty"`
 }
 
 // GetTimestampAccuracy returns the accuracy the datapoint timestamp should
@@ -279,7 +280,21 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 			log.Printf("failed to unmarshal a data point: %v, message: %s", err, string(datum))
 			continue
 		}
-		ts := timestamps[i].Truncate(c.config.GetTimestampAccuracy())
+		ts := timestamps[i]
+		// Optionally override timestamp with field in the data point.
+		if c.config.TimestampField != "" {
+			tsRaw, ok := entry[c.config.TimestampField].(string)
+			if !ok {
+				log.Printf("timestamp field %q not present or incorrectly formatted in data point %s", c.config.TimestampField, string(datum))
+				continue
+			}
+			ts, err = time.Parse(time.RFC3339, tsRaw)
+			if err != nil {
+				log.Printf("failed to parse timestamp field value %q: %v", tsRaw, err)
+				continue
+			}
+		}
+		ts = ts.Truncate(c.config.GetTimestampAccuracy())
 		entryC := make(map[string]interface{})
 		switch c.config.Type {
 		case "histogram", "top-k":
