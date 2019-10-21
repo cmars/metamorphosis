@@ -194,8 +194,8 @@ func TestConsumer(t *testing.T) {
 	}, {
 		about: "fields",
 		config: exporter.TopicConfig{
-			Topic: "test-topic",
 			// By not declaring Type, Type = "field" is assumed
+			Topic: "test-topic",
 			Fields: map[string]string{
 				"a": "number",
 				"b": "string",
@@ -217,10 +217,30 @@ func TestConsumer(t *testing.T) {
 			c.Assert(point.String(), qt.Equals, fmt.Sprintf(`test-topic a=42,b="just a string" 1556712000000000000`))
 		},
 	}, {
+		about: "constants",
+		config: exporter.TopicConfig{
+			Topic: "test-topic",
+			Constants: map[string]interface{}{
+				"a": 1,
+				"b": "",
+			},
+		},
+		data: map[string]interface{}{
+			"b": "this will be ignored",
+		},
+		timestamps: []time.Time{
+			time.Date(2019, 5, 1, 12, 0, 0, 0, time.UTC),
+		},
+		assertBatches: func(c *qt.C, points client.BatchPoints) {
+			p := points.Points()
+			c.Assert(p, qt.HasLen, 1)
+			point := p[0]
+			c.Assert(point.String(), qt.Equals, fmt.Sprintf(`test-topic a=1i,b="" 1556712000000000000`))
+		},
+	}, {
 		about: "fields-with-tags",
 		config: exporter.TopicConfig{
 			Topic: "test-topic",
-			// By not declaring Type, Type = "field" is assumed
 			Fields: map[string]string{
 				"a": "number",
 				"b": "string",
@@ -247,7 +267,6 @@ func TestConsumer(t *testing.T) {
 		about: "fields-with-tags-with-field-ref",
 		config: exporter.TopicConfig{
 			Topic: "test-topic",
-			// By not declaring Type, Type = "field" is assumed
 			Fields: map[string]string{
 				"a": "number",
 			},
@@ -387,7 +406,6 @@ func TestLogMessages(t *testing.T) {
 		about: "log tag reference not found",
 		config: exporter.TopicConfig{
 			Topic: "test-topic",
-			// By not declaring Type, Type = "field" is assumed
 			Fields: map[string]string{
 				"a": "number",
 			},
@@ -402,7 +420,6 @@ func TestLogMessages(t *testing.T) {
 		about: "log tag reference of invalid type",
 		config: exporter.TopicConfig{
 			Topic: "test-topic",
-			// By not declaring Type, Type = "field" is assumed
 			Fields: map[string]string{
 				"a": "number",
 			},
@@ -521,13 +538,13 @@ func TestConfigValidation(t *testing.T) {
 		},
 		error: "",
 	}, {
-		about: "invalid config, missing fields",
+		about: "invalid config, missing fields and constants",
 		config: exporter.Config{
 			Topics: []exporter.TopicConfig{{
 				Topic: "test-topic",
 			}},
 		},
-		error: `a 'fields' translation requires 'fields' to be specified (topic: "test-topic")`,
+		error: `a 'fields' translation requires 'fields' or 'constants' to be specified (topic: "test-topic")`,
 	}, {
 		about: "invalid config, missing number in top-n",
 		config: exporter.Config{

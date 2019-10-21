@@ -42,12 +42,13 @@ transformed.
   `n` in `top-n`.
 */
 type TopicConfig struct {
-	Topic     string            `yaml:"topic"`
-	Type      string            `yaml:"type,omitempty"`
-	Tags      map[string]string `yaml:"tags,omitempty"`
-	Fields    map[string]string `yaml:"fields,omitempty"`
-	KeyFormat string            `yaml:"key-format,omitempty"`
-	Number    int               `yaml:"number,omitempty"`
+	Topic     string                 `yaml:"topic"`
+	Type      string                 `yaml:"type,omitempty"`
+	Tags      map[string]string      `yaml:"tags,omitempty"`
+	Fields    map[string]string      `yaml:"fields,omitempty"`
+	Constants map[string]interface{} `yaml:"constants,omitempty"`
+	KeyFormat string                 `yaml:"key-format,omitempty"`
+	Number    int                    `yaml:"number,omitempty"`
 
 	/* TimestampAccuracy specifies the accuracy to which timestamps will
 	   be truncated before writing to influx.
@@ -86,8 +87,8 @@ func (c TopicConfig) Validate() error {
 	// Validate Type and associated fields
 	switch c.Type {
 	case "fields", "":
-		if len(c.Fields) == 0 {
-			return fmt.Errorf("a 'fields' translation requires 'fields' to be specified (topic: %q)", c.Topic)
+		if len(c.Fields) == 0 && len(c.Constants) == 0 {
+			return fmt.Errorf("a 'fields' translation requires 'fields' or 'constants' to be specified (topic: %q)", c.Topic)
 		}
 	case "top-n":
 		if c.Number <= 0 || c.Number > maxTopNEntries {
@@ -317,9 +318,11 @@ type topEntry struct {
 	Value float64
 }
 
-func getFieldsAndTags(topic string, entry map[string]interface{}, tags map[string]string, fields map[string]string) (map[string]string, map[string]interface{}) {
+func getFieldsAndTags(entry map[string]interface{}, config TopicConfig) (map[string]string, map[string]interface{}) {
+	topic := config.Topic
+
 	tagsMap := make(map[string]string)
-	for tag, value := range tags {
+	for tag, value := range config.Tags {
 		if len(value) > 1 && value[0] == '$' {
 			key := value[1:]
 			actualValue, ok := entry[key]
@@ -337,7 +340,7 @@ func getFieldsAndTags(topic string, entry map[string]interface{}, tags map[strin
 	}
 
 	fieldsMap := make(map[string]interface{})
-	for key, fieldType := range fields {
+	for key, fieldType := range config.Fields {
 		fieldValue, ok := entry[key]
 		if !ok {
 			log.Printf("entry key %q not found in topic %q message %+v", key, topic, entry)
@@ -351,6 +354,10 @@ func getFieldsAndTags(topic string, entry map[string]interface{}, tags map[strin
 		default:
 			log.Printf("unknown entry type %q for entry key %q topic %q", fieldType, key, topic)
 		}
+	}
+
+	for key, constant := range config.Constants {
+		fieldsMap[key] = constant
 	}
 
 	return tagsMap, fieldsMap
@@ -401,7 +408,7 @@ func (c *dataConsumer) process(ctx context.Context, data [][]byte, timestamps []
 			}
 			addPoint(&points, c.config, nil, entryC, ts)
 		case "fields", "":
-			tagsMap, fieldsMap := getFieldsAndTags(c.config.Topic, entry, c.config.Tags, c.config.Fields)
+			tagsMap, fieldsMap := getFieldsAndTags(entry, c.config)
 			addPoint(&points, c.config, tagsMap, fieldsMap, ts)
 		case "top-n":
 			if len(entry) > maxTopNEntries {
