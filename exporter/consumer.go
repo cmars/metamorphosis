@@ -20,13 +20,22 @@ import (
 	"github.com/juju/zaputil"
 	"github.com/juju/zaputil/zapctx"
 	"go.uber.org/zap"
+	"gopkg.in/natefinch/lumberjack.v2"
 	tomb "gopkg.in/tomb.v2"
 )
 
 const clientID = "metamorphosis"
 
 func init() {
-	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
+	if saramaLogFile := os.Getenv("SARAMA_LOG_FILE"); saramaLogFile != "" {
+		sarama.Logger = log.New(&lumberjack.Logger{
+			Filename:   saramaLogFile,
+			MaxSize:    50,
+			MaxBackups: 7,
+			MaxAge:     7,
+			Compress:   true,
+		}, "", log.LstdFlags)
+	}
 }
 
 const (
