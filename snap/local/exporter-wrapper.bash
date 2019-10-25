@@ -9,5 +9,6 @@ fi
 
 export HOME=$SNAP_COMMON
 export CONFIG=$SNAP_COMMON/etc/exporter.config
+export SARAMA_LOG_FILE=$SNAP_COMMON/log/sarama.log
 
 $SNAP/bin/exporter
