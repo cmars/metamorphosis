@@ -42,13 +42,14 @@ transformed.
   `n` in `top-n`.
 */
 type TopicConfig struct {
-	Topic     string                 `yaml:"topic"`
-	Type      string                 `yaml:"type,omitempty"`
-	Tags      map[string]string      `yaml:"tags,omitempty"`
-	Fields    map[string]string      `yaml:"fields,omitempty"`
-	Constants map[string]interface{} `yaml:"constants,omitempty"`
-	KeyFormat string                 `yaml:"key-format,omitempty"`
-	Number    int                    `yaml:"number,omitempty"`
+	Topic       string                 `yaml:"topic"`
+	Measurement string                 `yaml:"measurement,omitempty"`
+	Type        string                 `yaml:"type,omitempty"`
+	Tags        map[string]string      `yaml:"tags,omitempty"`
+	Fields      map[string]string      `yaml:"fields,omitempty"`
+	Constants   map[string]interface{} `yaml:"constants,omitempty"`
+	KeyFormat   string                 `yaml:"key-format,omitempty"`
+	Number      int                    `yaml:"number,omitempty"`
 
 	/* TimestampAccuracy specifies the accuracy to which timestamps will
 	   be truncated before writing to influx.
@@ -106,6 +107,13 @@ func (c TopicConfig) Validate() error {
 		return fmt.Errorf("invalid timestamp accuracy value: %q, topic: %q", c.TimestampAccuracy, c.Topic)
 	}
 	return nil
+}
+
+func (c TopicConfig) measurementName() string {
+	if c.Measurement == "" {
+		return c.Topic
+	}
+	return c.Measurement
 }
 
 type Config struct {
@@ -305,7 +313,7 @@ func addPoint(pointsList *[]*client.Point, tc TopicConfig, extraTags map[string]
 	for key, value := range extraTags {
 		tags[key] = value
 	}
-	p, err := client.NewPoint(tc.Topic, tags, fields, ts)
+	p, err := client.NewPoint(tc.measurementName(), tags, fields, ts)
 	if err != nil {
 		log.Printf("failed to create a new data point: %v", err)
 		return
